@@ -1,0 +1,2 @@
+model_checkpoint_path: "tokenizer.model"
+all_model_checkpoint_paths: "tokenizer.model"

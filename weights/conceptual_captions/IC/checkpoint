@@ -1,0 +1,2 @@
+model_checkpoint_path: "conceptual_captions.model"
+all_model_checkpoint_paths: "conceptual_captions.model"
