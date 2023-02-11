@@ -22,7 +22,7 @@ We claim that the answe is adequate if it corresponds to the query given the IC 
 where
 
 <br><img src="./images/g_k.jpg" width=250 align="center" /><br><br>
-<br><img src="./images/d_k.jpg" width=100 align="center" /><br><br>
+<br><img src="./images/d_k.jpg" width=50 align="center" /><br><br>
 
 
 ## Qualitative results
