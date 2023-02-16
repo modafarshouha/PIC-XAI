@@ -7,6 +7,7 @@ from nltk.corpus import treebank_chunk
 import tensorflow as tf
 
 from time import perf_counter, gmtime, strftime
+import os
 
 
 IMAGE_SHAPE=(224, 224, 3)
@@ -44,10 +45,14 @@ def conll_tag_chunks(chunk_data):
 			for sent in tagged_data]
 
 def log_print(message_to_print, file_path='./test_log'):
+  
+  if not os.path.exists(file_path):
+    os.makedirs(file_path)
+
   log_file = f'{file_path}/output.txt'
   print(message_to_print)
-  with open(log_file, 'a') as of:
-    of.write(message_to_print + '\n')
+  with open(log_file, 'a') as f:
+    f.write(message_to_print + '\n')
 
 class TagChunker(ChunkParserI):
   def __init__(self, train_chunks,
