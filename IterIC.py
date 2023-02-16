@@ -23,6 +23,8 @@ parser.add_argument('--algorithm', default='quickshift', type=str, required=Fals
 parser.add_argument('--kernel_size', default=20, type=int, required=False, help='low level segmentation kernel size (int)')
 parser.add_argument('--max_dist', default=200, type=int, required=False, help='low level segmentation maximum distance (int)')
 parser.add_argument('--ratio', default=0.2, type=float, required=False, help='low level segmentation ratio (float)')
+parser.add_argument('--image_path', type=str, required=False, help='image path to be explained, it overwrites "test" option')
+parser.add_argument('--test_dir', default='./data/test', type=str, required=False, help='directory path for test results, it activates "test" option')
 
 
 if __name__=='__main__':
@@ -35,6 +37,13 @@ if __name__=='__main__':
                                      max_dist=args.max_dist, ratio=args.ratio,
                                      random_seed=42)
     ExplainerModel = Explainer(captioner=CaptioningModel, instance_seg=InstanceSegModel, random_seg=RandomSegModel)
+
+    if args.image_path:
+        ExplainerModel.explain(args.image_path)
+    else:
+        images_dir = f'{args.test_dir}/{args.dataset}/images_dir/'
+        save_dir = f'{args.test_dir}/{args.dataset}/save_dir/'
+        ExplainerModel.test_images(images_dir=images_dir, save_dir=save_dir)
 
     # dataset = 'flickr8k'
     # instance_seg_dataset = 'coco' # coco or lvis
