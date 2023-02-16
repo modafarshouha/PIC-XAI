@@ -9,15 +9,17 @@ from time import perf_counter, gmtime, strftime
 import matplotlib.pyplot as plt
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import CountVectorizer
+from sentence_transformers import SentenceTransformer
 
 from utils import Chunker, log_print
 
 
 class Explainer():
-    def __init__(self, captioner, instance_seg, random_seg) -> None:
+    def __init__(self, captioner, instance_seg, random_seg, text_encoder) -> None:
         self.CaptioningModel = captioner
         self.InstanceSegModel = instance_seg
         self.RandomSegModel = random_seg
+        self.text_encoder = text_encoder
 
         self.image_path = None
         self.main_caption = None
@@ -186,11 +188,19 @@ class Explainer():
             text_1 = self.removeStops(text_1)
             text_2 = self.removeStops(text_2)
         corpus = [text_1, text_2]
-        vectorizer = CountVectorizer().fit_transform(corpus)
-        vectors = vectorizer.toarray()
 
-        vect_1 = vectors[0].reshape(1, -1)
-        vect_2 = vectors[1].reshape(1, -1)
+        if self.text_encoder=='count':
+            text_encoder_model = CountVectorizer().fit_transform(corpus)
+            corpus = text_encoder_model.toarray()
+        elif self.text_encoder=='bert':
+            text_encoder_model = SentenceTransformer('bert-base-nli-mean-tokens')
+            corpus = text_encoder_model.encode(corpus)
+        elif self.text_encoder=='roberta':
+            text_encoder_model = SentenceTransformer('stsb-roberta-large')
+            corpus = text_encoder_model.encode(corpus)
+        
+        vect_1 = corpus[0].reshape(1, -1)
+        vect_2 = corpus[1].reshape(1, -1)
 
         return cosine_similarity(vect_1, vect_2)
     
