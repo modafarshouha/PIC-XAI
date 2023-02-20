@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import CountVectorizer
 from sentence_transformers import SentenceTransformer
+import nltk
+from nltk.corpus import stopwords
 
 from utils import Chunker, log_print
 
@@ -33,6 +35,7 @@ class Explainer():
         self.stages_results = self.initialize_stages_results()
 
         self.chunker = Chunker()
+        self.stops = stopwords.words('english')
 
         self.test_time = None
 
@@ -178,15 +181,15 @@ class Explainer():
         log_print(f'{self.current_stage} score: {max(scores)}')
         return ids, scores
 
-    def removeStops(self, sent):
+    def remove_stops(self, sent):
         words = [word for word in sent.split() if word.lower() not in self.stops]
         text = ' '.join(words)
         return text
 
     def calculate_similarity_score(self, text_1, text_2, remove_stops=True):
         if remove_stops:
-            text_1 = self.removeStops(text_1)
-            text_2 = self.removeStops(text_2)
+            text_1 = self.remove_stops(text_1)
+            text_2 = self.remove_stops(text_2)
         corpus = [text_1, text_2]
 
         if self.text_encoder=='count':
