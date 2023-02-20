@@ -25,7 +25,8 @@ parser.add_argument('--max_dist', default=200, type=int, required=False, help='l
 parser.add_argument('--ratio', default=0.2, type=float, required=False, help='low level segmentation ratio (float)')
 parser.add_argument('--image_path', type=str, required=False, help='image path to be explained, it overwrites "test" option')
 parser.add_argument('--test_dir', default='./data/test', type=str, required=False, help='directory path for test results, it activates "test" option')
-parser.add_argument('--text_encoder', default='bert', type=str, required=False, help='the text encoder that is used in calculating the similarity score: count (sklearn CountVectorizer), bert, roberta')
+parser.add_argument('--text_encoder', default='bert', type=str, required=False, help='the text encoder that is used in calculating the similarity score: \
+                                                                                      count (sklearn CountVectorizer), bert or roberta')
 
 
 if __name__=='__main__':
