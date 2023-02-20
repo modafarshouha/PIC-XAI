@@ -79,7 +79,6 @@ class Detectron2Model():
         return self.model
     
     def predict(self, image):
-        # image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR) #MODA not sure, recheck!!!
         self.image = image
         outputs = self.model(image)
         self.instances = outputs["instances"]
