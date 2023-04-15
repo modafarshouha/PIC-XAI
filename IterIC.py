@@ -10,7 +10,7 @@ from image_captioner import IC
 from instance_segmentation import InstanceSegmenter
 # from IterIC_seg import IterIC
 from random_seg import RandomSegmenter
-from IC_explaination import Explainer
+from PIC import Explainer
 
 import argparse
 

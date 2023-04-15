@@ -337,23 +337,8 @@ class IC():
 # print(result)
 
 if __name__ == '__main__':
-	print("XXX")
-	sentence = 'a man in a red shirt is swimming in the water'
-	c = Captioner(dataset='flickr8k', weights_dir='.\weights')
-	print(c.tokenize_txt(sentence))
-	tokenized = c.tokenize_txt(sentence)
-	import nltk
-	try:
-		# Ready chuncking solutions???
-		# for i in sentence.split():
-			words = nltk.word_tokenize(sentence)
-			tagged = nltk.pos_tag(words)
-			chunkGram = r"""Chunk: {<RB.?>*<VB.?>*<NNP>+<NN>?}"""
-			chunkParser = nltk.RegexpParser(chunkGram)
-			chunked = chunkParser.parse(tagged)
-			# chunked.draw()
-	except Exception as e:
-		print(str(e))
+	c = IC(dataset='flickr8k', weights_dir='.\weights')
+	import matplotlib.pyplot as plt
+	image = plt.imread('.\\data\\test\\flickr8k\\save_dir\\0_1_blurred.jpg')
 
-	for subtree in chunked.subtrees():
-		print(subtree)
+	print(c.caption_image(image).lower())

@@ -65,16 +65,16 @@ class Explainer():
                 self.instance_segmentation()
                 self.random_segmentation()
                 pref_time = perf_counter() - start
-                log_print(f"Segments generation is done in more than {int(pref_time/60)} min ({pref_time} sec)!")
+                log_print(f"Segments generation is done in less than {int(pref_time/60)+1} min ({pref_time} sec)!")
                 start = perf_counter()
                 log_print("Stage 1 ...")
                 self.stageI()
                 pref_time = perf_counter() - start
-                log_print(f"Stage 1 is done in more than {int(pref_time/60)} min ({pref_time} sec)!")
+                log_print(f"Stage 1 is done in less than {int(pref_time/60)+1} min ({pref_time} sec)!")
                 start = perf_counter()
                 self.stageII()
                 pref_time = perf_counter() - start
-                log_print(f"Stage 2 is done in more than {int(pref_time/60)} min ({pref_time} sec)!")
+                log_print(f"Stage 2 is done in less than {int(pref_time/60)+1} min ({pref_time} sec)!")
                 self.answer(save_dir, image_id, query_id)
 
     def validate_image_path(self, image_path):
