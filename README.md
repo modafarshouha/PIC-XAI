@@ -44,7 +44,15 @@ Please refer to this repository and cite our publication when using this work.
 
 ## Cite
 ```
-not yet
+@inproceedings{al2023pic,
+  title={PIC-XAI: Post-hoc Image Captioning Explanation using Segmentation},
+  author={Al-Shouha, Modafar and Sz{\H{u}}cs, G{\'a}bor},
+  booktitle={2023 IEEE 17th International Symposium on Applied Computational Intelligence and Informatics (SACI)},
+  pages={000033--000038},
+  year={2023},
+  organization={IEEE},
+  doi={10.1109/SACI58269.2023.10158563}
+}
 ```
 
 ## License
