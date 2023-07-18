@@ -9,7 +9,7 @@ logging.getLogger('tensorflow').setLevel(logging.ERROR)
 from image_captioner import IC
 from instance_segmentation import InstanceSegmenter
 from random_seg import RandomSegmenter
-from iPIC import Explainer
+from PIC import Explainer
 from utils import log_print
 
 import argparse
