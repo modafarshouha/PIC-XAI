@@ -103,9 +103,10 @@ class RandomSegmenter(BaseWrapper):
         self.algo_type = None
         self.set_algo(algo_type, **target_params)
 
-        self.segments = None
+        self.segments = np.array([])
         self.proposed_masks = None
         self.proposals = None
+
 
     def set_algo(self, algo_type, **target_params):
         if (algo_type == 'quickshift'):
@@ -128,10 +129,11 @@ class RandomSegmenter(BaseWrapper):
 
     def create_proposals(self, *args): # args[0]: image, args[1]: stageI proposed mask
         image, mask = args[0], args[1]
+        blur_ksize = args[2]
 
         self.create_proposals_list(mask)
 
-        blurred = cv2.blur(image, (20, 20))
+        blurred = cv2.blur(image, (blur_ksize, blur_ksize))
         
         proposals = list()
         for idx, mask in tqdm(enumerate(self.proposals_masks)):
@@ -145,16 +147,23 @@ class RandomSegmenter(BaseWrapper):
         segments = self.target_fn(image, **self.target_params)
         self.segments = np.stack([segments, segments, segments], axis=-1)
 
-    def create_proposals_list(self, mask):
+    def create_proposals_list(self, mask, thr=0.005):
         proposals = list()
+        proposals.append(np.stack([mask ,mask, mask], axis=-1))
         seg_proposals = np.full(self.segments.shape, 0)
         seg_proposals[mask==True] = self.segments[mask==True]
-        masks_ids = np.unique(seg_proposals)
+        # masks_ids = np.unique(seg_proposals)
+        masks_ids, counts = np.unique(seg_proposals, return_counts=True)
+        counts_dict = dict(zip(masks_ids, counts))
+        total_counts = np.sum(counts)
         for mask_id in masks_ids:
             proposal = np.full(seg_proposals.shape, False)
             proposal[seg_proposals==mask_id] = True
-            proposal[mask!=True] = False # remove BG when mask_id is zero
-            proposals.append(proposal)
+            # remove BG when mask_id is zero
+            proposal[mask!=True] = False
+            if np.count_nonzero(proposal)==0: continue
+            # remove small segments
+            if counts_dict[mask_id]/total_counts >= thr: proposals.append(proposal)
         self.proposals_masks = np.array(proposals)
 
     def save_segment(self, idx, image, blurred, mask):
@@ -162,7 +171,7 @@ class RandomSegmenter(BaseWrapper):
         proposed_segment[mask] = image[mask]
         image_size = image.shape[0] * image.shape[1]
         mask_size = np.count_nonzero(mask)
-        proposal = [idx, None, None, proposed_segment, mask] # same structure as stageI, but sizes are not important
+        proposal = [idx, image_size, mask_size, proposed_segment, mask] # same structure as stageI
         return proposal
 
     # def __call__(self, *args):

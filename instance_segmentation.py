@@ -12,14 +12,11 @@ import numpy as np
 import os, json, cv2, random
 import itertools as it
 import torch
-# from google.colab.patches import cv2_imshow
 
 # import some common detectron2 utilities
 from detectron2 import model_zoo
 from detectron2.engine import DefaultPredictor
 from detectron2.config import get_cfg
-# from detectron2.utils.visualizer import Visualizer
-# from detectron2.data import MetadataCatalog, DatasetCatalog
 
 class Detectron2Model():
     def __init__(self, dataset='coco', backbone='r50') -> None:
@@ -92,14 +89,14 @@ class InstanceSegmenter(Detectron2Model):
         self.combined_instances = None
         self.proposals = None
 
-    def create_proposals(self):
+    def create_proposals(self, blur_ksize=100):
         proposals = list()
         
         image = self.image
         image = image.astype(int)
 
         masks = self.filter_masks()
-        blurred = cv2.blur(image, (20, 20))
+        blurred = cv2.blur(image, (blur_ksize, blur_ksize))
         combined_instances = self.combine_instances(masks)
 
         for idx in range(len(combined_instances)):
@@ -176,28 +173,3 @@ class InstanceSegmenter(Detectron2Model):
 #     cfg = get_cfg()
 
 #     cfg.MODEL.DEVICE = "cpu"
-
-#     # add project-specific config (e.g., TensorMask) here if you're not running a model in detectron2's core library
-#     cfg.merge_from_file(model_zoo.get_config_file("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"))
-#     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5  # set threshold for this model
-#     # Find a model from detectron2's model zoo. You can use the https://dl.fbaipublicfiles... url as well
-#     cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")
-#     predictor = DefaultPredictor(cfg)
-#     outputs = predictor(im)
-
-#     # look at the outputs. See https://detectron2.readthedocs.io/tutorials/models.html#model-output-format for specification
-#     print(outputs["instances"].pred_classes)
-#     print(outputs["instances"].pred_boxes)
-#     print('outputs["instances"] ::: \n', len(outputs["instances"].pred_masks))
-
-#     for i in range(len(outputs["instances"].pred_masks)):
-#         print(outputs["instances"].pred_masks[i].shape)
-#         print(outputs["instances"].pred_classes[i])
-
-#     v = Visualizer(im[:, :, ::-1], MetadataCatalog.get(cfg.DATASETS.TRAIN[0]), scale=1.2)
-#     out = v.draw_instance_predictions(outputs["instances"].to("cpu"))
-#     # cv2.imshow("output", out.get_image()[:, :, ::-1])
-
-#     import matplotlib.pyplot as plt
-#     plt.imshow(cv2.cvtColor(out.get_image()[:, :, ::-1], cv2.COLOR_BGR2RGB))
-#     plt.show()
