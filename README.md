@@ -34,14 +34,25 @@ We tested our algorithm **PIC-XAI** and metric **XIC** on test queries and the c
 <br><img src="./images/bad_examples.jpg" width=500 align="center" title="Bad results"/><br><br>
 
 ## Usage
-In this repo we use a segmentation model that was trained on Lvis and MSCOCO data sets. For low-level segmentation quickshift, felzenszwalb or slic can be used. We use an IC models that were traiend on Flickr8k and MSCOCO data sets. All those techniques can be fine-tuned w.r.t the user need.
-To use *PIC-XAI*, set the proper parameters and paths and run the following command:
+In this repo we use two segmentation models, they were trained on Lvis and MSCOCO data sets. For low-level segmentation quickshift, felzenszwalb or slic can be used. We use IC models that were traiend on Flickr8k and MSCOCO data sets. All those techniques can be fine-tuned w.r.t the user need.
+To use our algorithm(s), set the proper parameters and paths and run the following command:
 ```
 python .\PIC-XAI\IterIC.py
 ```
 
+The module contain many flags to set, however, the following flags set the main algorithm parameters:
+<ol><i>
+  <li>clip_mode: "0", "1", "2" and "both" for not using CLIP, using it in stageI, in stageII and in both stages, respectively.</li>
+  <li>pobj_mode: applying object of preposition rule (True) or not (False).</li>
+  <li>stage_hi_sim: using stage result with higher similarity (True) or not (False).</li>
+  <li>blur_ksize: setting blurring kernel size manually or automatically ("auto").</li>
+  <li>improved_XIC: using improved XIC (True) or not (False).</li>
+</i></ol>
 
-iPIC-XAI code and more details about the usage will be added very soon.
+for instance, the following command runs *PIC-XAI* algorithm (CLIP and Object of preporition rule are not used, stageI proposal is always considered as an answer, and the blurring kernel size is 20).
+```
+python .\PIC-XAI\IterIC.py -clip_mode 0 -pobj_mode False -stage_hi_sim False -blur_ksize 20
+```
 
 Please refer to this repository and cite our publication when using this work.
 
