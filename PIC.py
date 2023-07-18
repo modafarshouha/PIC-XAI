@@ -10,22 +10,31 @@ import matplotlib.pyplot as plt
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import CountVectorizer
 from sentence_transformers import SentenceTransformer
+import spacy
 import nltk
 from nltk.corpus import stopwords
 
+from Clip import Clip
 from utils import Chunker, log_print
 
 
 class Explainer():
-    def __init__(self, captioner, instance_seg, random_seg, text_encoder) -> None:
+    def __init__(self, captioner, instance_seg, random_seg, text_encoder, \
+                 blur_ksize=100, clip_mode='0', pobj_mode=False, improved_XIC=False, \
+                 stage_hi_sim=False, clip_model="ViT-B/32", spacy_model="en_core_web_sm") -> None:
         self.CaptioningModel = captioner
         self.InstanceSegModel = instance_seg
         self.RandomSegModel = random_seg
         self.text_encoder = text_encoder
 
+        self.ClipModel = Clip(selected_model=clip_model)
+        self.SpacyModel = spacy.load(spacy_model)
+
         self.image_path = None
         self.main_caption = None
+        self.main_caption_dependency = None
         self.query = None
+        self.query_dependency = None
         self.image = None
         self.blurred = None
 
@@ -38,10 +47,16 @@ class Explainer():
         self.stops = stopwords.words('english')
 
         self.test_time = None
+        self.blur_ksize = blur_ksize
+        self.image_blur_ksize = None
+        self.clip_mode = clip_mode
+        self.pobj_mode = pobj_mode
+        self.improved_XIC = improved_XIC
+        self.stage_hi_sim = stage_hi_sim
 
     def initialize_stages_results(self):
         stage_dict = {'selected_ids ': [], 'max_score': [], 'proposed_mask': [], 'proposal': [], 'segments':[], 'captions':[]}
-        results_dict = {'stage 1': stage_dict.copy(), 'stage 2': stage_dict.copy()}
+        results_dict = {'stage 1': stage_dict.copy(), 'stage 2': stage_dict.copy(), 'final': stage_dict.copy()}
         return results_dict
     
     def explain(self, image_path, mode='loop', test_query='', save_dir='', image_id='', query_id=''):
@@ -49,7 +64,6 @@ class Explainer():
         self.validate_image_path(image_path)
         if self.image_path:
             if not self.main_caption: self.caption_image(self.image, main=True)
-            # self.get_query() if mode=='loop' else self.set_query()
             while(loop_cond):
                 if mode=='loop':
                     loop_cond = self.get_query()
@@ -57,8 +71,9 @@ class Explainer():
                 elif mode=='test':
                     self.query = test_query.lower()
                     loop_cond = False
-
+                self.set_query_dependency()
                 log_print(f"Query is {self.query}")
+                log_print(f'Query dependency is: {self.query_dependency}')
                 log_print("Query accepted!")
                 log_print("Generating segments!")
                 start = perf_counter()
@@ -82,17 +97,48 @@ class Explainer():
             self.image_path = image_path
             image = cv2.imread(self.image_path)
             self.image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            self.blurred = cv2.blur(self.image, (20, 20))
+            log_print("Setting blurring kernel size!")
+            self.set_blur_ksize()
+            log_print(f"Blurring kernel size is: {self.image_blur_ksize}")
+            self.blurred = cv2.blur(self.image, (self.image_blur_ksize, self.image_blur_ksize))
         else:
             log_print('Image was not found!')
+
+    def set_blur_ksize(self):
+        if self.blur_ksize == 'auto':
+            log_print("Automatic setting!")
+            image_caption = self.remove_stops(self.caption_image(self.image))
+            image_caption = image_caption.split()
+            for blur_ksize in range(20, 140, 20):
+                blur_image = cv2.blur(self.image, (blur_ksize, blur_ksize))
+                blur_caption = self.remove_stops(self.caption_image(blur_image))
+                blur_caption = blur_caption.split()
+                if not(set(image_caption) & set(blur_caption)): break
+            self.image_blur_ksize = blur_ksize
+        else:
+            log_print("Manual setting!")
+            self.image_blur_ksize = int(self.blur_ksize)
 
     def caption_image(self, image, main=False):
         caption = self.CaptioningModel.caption_image(image).lower()
         if main:
             self.main_caption = caption
+            self.extract_caption_dependency()
             log_print(f'\nOriginal caption:\n{self.main_caption}\n')
         return caption
+
+    def extract_caption_dependency(self):
+        main_caption_dependency = dict()
+        for token in self.SpacyModel(self.main_caption):
+            main_caption_dependency[str(token)] = token.dep_
+        self.main_caption_dependency = main_caption_dependency
     
+    def set_query_dependency(self):
+        query_dependency = list()
+        for token in self.query.split():
+            query_dependency.append(self.main_caption_dependency[token])
+        self.query_dependency = ' '.join(query_dependency)
+
     def get_query(self):
         good_query = False
         while(not good_query):
@@ -109,22 +155,20 @@ class Explainer():
 
     def instance_segmentation(self):
         if len(self.stages_results['stage 1']['segments'])==0:
-            log_print("stage 1 segments are NOT available!")
+            log_print("Instance segmentation segments are NOT available!")
             self.InstanceSegModel.predict(self.image)
-            self.InstanceSegModel.create_proposals()
+            self.InstanceSegModel.create_proposals(self.image_blur_ksize)
             self.stages_results['stage 1']['segments'] = self.InstanceSegModel.proposals
         else:
-            log_print("stage 1 segments are available!")
+            log_print("Instance segmentation segments are READY!")
             self.InstanceSegModel.proposals = self.stages_results['stage 1']['segments']
 
-    def random_segmentation(self):
+    def random_segmentation(self):   
         if len(self.stages_results['stage 2']['segments'])==0:
-            log_print("stage 2 segments are NOT available!")
-            self.RandomSegModel.create_segments(self.image)
-            self.stages_results['stage 2']['segments'] = self.RandomSegModel.segments
-        else:
-            log_print("stage 2 segments are available!")
-            self.RandomSegModel.segments = self.stages_results['stage 2']['segments']
+            log_print("Low-level segmentation segments are NOT available!")
+            self.RandomSegModel.create_segments(self.image) # it is only done if the image does not have segments
+        self.stages_results['stage 2']['segments'] = self.RandomSegModel.segments
+        log_print("Low-level segmentation segments are READY!")
 
     def stageI(self):
         self.current_stage = 'stage 1'
@@ -132,61 +176,88 @@ class Explainer():
         self.current_stage_proposals = self.InstanceSegModel.proposals
         self.nominate_proposal()
 
-        plt.imshow(self.stages_results[self.current_stage]['proposal'])
-        plt.title('Stage 1 proposal')
-        plt.show()
-
     def nominate_proposal(self):
         ids, scores = self.calculate_similarity_scores()
         self.select_highest(ids, scores)
         self.merge_proposals() # useful when there is more than region with the max similarity score
+        if self.current_stage == 'stage 2':
+            selected_stage = 'stage 2'
+            if self.stage_hi_sim:
+                selected_stage = 'stage 1' if self.stages_results['stage 1']['max_score'] > self.stages_results['stage 2']['max_score'] else 'stage 2'
+            
+            self.stages_results['final']['max_score'] = self.stages_results[selected_stage]['max_score']
+            self.stages_results['final']['proposal'] = self.stages_results[selected_stage]['proposal']
+            self.stages_results['final']['proposed_mask'] = self.stages_results[selected_stage]['proposed_mask']
 
     def calculate_similarity_scores(self):
         scores = list()
         ids = list()
-        print("\n\n\n")
         log_print(f'{self.current_stage} calculate_similarity_scores starts')
-        for idx, image_size, mask_size, proposed_segment, _ in tqdm(self.current_stage_proposals):
-            ids.append(idx)
-            if len(self.stages_results[self.current_stage]['captions'])>idx:
-                caption = self.stages_results[self.current_stage]['captions'][idx]
-            else:
-                caption = self.caption_image(proposed_segment)
-                self.stages_results[self.current_stage]['captions'].append(caption) 
-            # weight = mask_size/image_size if self.current_stage=='stage 1' else 1
-            weight = (mask_size/image_size) if self.current_stage=='stage 1' else 1 # Moda
-            sim_score = self.calculate_similarity_score(caption, self.query, remove_stops=False)[0][0]
-            # log_print(caption)
-            # log_print(f'{str(sim_score)} / {str(weight)}')
-            sim_score_w = sim_score/weight
-            
-            # print("caption ::: ", caption)
-            # print("sim_score : ", sim_score)
-            # print("sim_score_w : ", sim_score_w)
-            # plt.imshow(proposed_segment)
-            # plt.show()
+        start = perf_counter()
 
-            # log_print("weighted: ", sim_score_w)
-            # Moda: just a try, two upper limits
-            # if sim_score_w >= 2*sim_score: sim_score_w = 2*sim_score
+        for idx, image_size, mask_size, proposed_segment, mask in tqdm(self.current_stage_proposals):
+            ids.append(idx)
+            # if self.current_stage=='stage 2':
+            #     # if len(self.stages_results[self.current_stage]['captions'])>idx:
+            #     #     caption = self.stages_results[self.current_stage]['captions'][idx]
+            #     # else:
+            #     #     caption = self.caption_image(proposed_segment)
+            #     #     self.stages_results[self.current_stage]['captions'].append(caption)
+
+                    
+            #     caption = self.caption_image(proposed_segment)
+            #     self.stages_results[self.current_stage]['captions'].append(caption)
+            #     sim_score = self.calculate_cosine_similarity_score(caption, self.query, remove_stops=False)
+
+            # else:
+
+            #     sim_score = self.calculate_clip_similarity_score(proposed_segment, self.query)
+
+            sim_score = self.calculate_similarity_score(proposed_segment)
+
+            weight = 1
+            if (self.current_stage=='stage 1'):
+                if not self.pobj_mode:
+                    weight = (mask_size/image_size)
+                elif not ('pobj' in self.query_dependency):
+                    weight = (mask_size/image_size)
+
+            log_print(f'{str(sim_score)} / {str(weight)}')
+            sim_score_w = sim_score/weight
             if sim_score_w >= 1: sim_score_w = 1
-            # log_print("Final: ", sim_score_w)
-            # plt.imshow(proposed_segment)
-            # plt.title(str(idx))
-            # plt.show()
             scores.append(sim_score_w)
+
+        pref_time = perf_counter() - start
+        log_print(f'\nmeasuring similarity score for {len(ids)} segments is done in {pref_time} seconds...\n')
         log_print(f'{self.current_stage} calculate_similarity_scores is done')
         ids = [x for _, x in sorted(zip(scores, ids), reverse=True)]
         scores.sort(reverse=True)
         log_print(f'{self.current_stage} score: {max(scores)}')
         return ids, scores
 
+    def calculate_similarity_score(self, proposed_segment):
+        if (self.clip_mode=='1' and self.current_stage=='stage 1') or \
+           (self.clip_mode=='2' and self.current_stage=='stage 2') or \
+           (self.clip_mode=='both'):
+            return self.calculate_clip_similarity_score(proposed_segment, self.query)
+        else:
+            return self.calculate_cosine_similarity_score(proposed_segment, self.query)
+
     def remove_stops(self, sent):
         words = [word for word in sent.split() if word.lower() not in self.stops]
         text = ' '.join(words)
         return text
 
-    def calculate_similarity_score(self, text_1, text_2, remove_stops=True):
+    def calculate_clip_similarity_score(self, image, query):
+        self.stages_results[self.current_stage]['captions'].append("CLIP") # no caption is used in calculating CLIP score
+        return self.ClipModel.measure_similarity(image, query)[0][0]
+
+    def calculate_cosine_similarity_score(self, proposed_segment, query):
+        caption = self.caption_image(proposed_segment)
+        self.stages_results[self.current_stage]['captions'].append(caption)
+        return self.calculate_text_cosine_similarity_score(caption, query, remove_stops=False)
+
+    def calculate_text_cosine_similarity_score(self, text_1, text_2, remove_stops=True):
         if remove_stops:
             text_1 = self.remove_stops(text_1)
             text_2 = self.remove_stops(text_2)
@@ -205,7 +276,7 @@ class Explainer():
         vect_1 = corpus[0].reshape(1, -1)
         vect_2 = corpus[1].reshape(1, -1)
 
-        return cosine_similarity(vect_1, vect_2)
+        return cosine_similarity(vect_1, vect_2)[0][0]
     
     def select_highest(self, sorted_ids, scores):
         max_score = max(scores)
@@ -233,15 +304,14 @@ class Explainer():
         self.current_stage = 'stage 2'
         self.current_stage_proposals = None
         proposed_mask = self.stages_results['stage 1']['proposed_mask']
-        self.RandomSegModel.create_proposals(self.image, proposed_mask)
+        self.RandomSegModel.create_proposals(self.image, proposed_mask, self.image_blur_ksize)
         self.current_stage_proposals = self.RandomSegModel.proposals
         self.nominate_proposal()
     
     def answer(self, save_dir='', image_id='', query_id=''):
         log_print(f"Caption: {self.main_caption}")
         log_print(f"Query: {self.query}")
-        selected_stage = self.current_stage
-        # selected_stage = 'stage 1' if self.stages_results['stage 1']['max_score'] > self.stages_results['stage 2']['max_score'] else 'stage 2'
+        selected_stage = 'final'
         log_print(f"Answer similarity score: {self.stages_results[selected_stage]['max_score']}")
 
         masked_image = np.zeros_like(self.image)
@@ -260,7 +330,10 @@ class Explainer():
                 result_line += f"{'1' if self.is_good_answer() else '0'}, "
                 result_line += f"{self.stages_results[selected_stage]['max_score']}, "
                 result_line += f"{self.image.shape[0]*self.image.shape[1]}, "
-                result_line += f"{int(np.count_nonzero(self.stages_results[selected_stage]['proposed_mask'])/3)}"
+                result_line += f"{int(np.count_nonzero(self.stages_results[selected_stage]['proposed_mask'])/3)}, "
+                result_line += f"{self.image_blur_ksize}, "
+                result_line += f"{self.query_dependency}"
+
                 file.write(result_line)
 
             stage = 'stage 1'
@@ -268,6 +341,10 @@ class Explainer():
             self.dump_results(results_file, stage)
 
             stage = 'stage 2'
+            results_file = save_dir + f'{image_id}_{query_id}_{stage}.bin'
+            self.dump_results(results_file, stage)
+
+            stage = 'final'
             results_file = save_dir + f'{image_id}_{query_id}_{stage}.bin'
             self.dump_results(results_file, stage)
 
@@ -333,18 +410,21 @@ class Explainer():
         results_file = save_dir + f'results_{self.test_time}.txt'
         if not os.path.isfile(results_file):
             with open(results_file, 'w') as file:
-                file.write('image_id, caption, query_id, query, good_query, sim_score, image_size, answer_size')
+                file.write(f'captioner_ds\t{self.CaptioningModel.dataset}, instance_seg_ds\t{self.InstanceSegModel.dataset}, \
+                           random_seg_algo\t{self.RandomSegModel.algo_type}, blur_mode\t{self.blur_ksize}, clip_mode\t{self.clip_mode}, \
+                           pobj_mode\t{self.pobj_mode}, improved_XIC\t{self.improved_XIC}\n')
+                file.write('image_id, caption, query_id, query, good_query, sim_score, image_size, answer_size, blur_kszie, query_dependency')
 
         images_names = next(os.walk(images_dir), (None, None, []))[2]
         # partial test
         images_names = [int(name[:name.index('.')]) for name in images_names]
         images_names.sort()
         images_names = [str(name)+'.jpg' for name in images_names]
-        print("images_names ::::: \n", images_names)
-        start_idx = 0
-        # last_idx = 22
+        # print("images_names ::::: \n", images_names)
+        # start_idx = 79
+        # last_idx = 10
         # images_names = images_names[start_idx:last_idx]
-        images_names = images_names[start_idx:]
+        # images_names = images_names[start_idx:]
         # images_names = [images_names[start_idx]]
         #############
         for name in tqdm(images_names):
@@ -357,7 +437,9 @@ class Explainer():
     def reset_parameters(self):
         self.image_path = None
         self.main_caption = None
+        self.main_caption_dependency = None
         self.query = None
+        self.query_dependency = None
         self.image = None
         self.blurred = None
         self.current_stage = None
@@ -376,10 +458,14 @@ class Explainer():
         results_file = save_dir + f'{image_id}_{stage}.bin'
         if os.path.isfile(results_file): self.read_results(results_file, stage)
 
+        self.random_segmentation()  # Moda: improvement , random segmentation for the whole image is done only one time per image, in Stage 2 they are masked based on Stage 1 proposal mask
+
         for query_id, query in enumerate(queries):
-            stage = 'stage 2'
-            results_file = save_dir + f'{image_id}_{query_id}_{stage}.bin'
-            if os.path.isfile(results_file): self.read_results(results_file, stage)
+            # # Moda: maybe not needed!
+            # stage = 'stage 2'
+            # results_file = save_dir + f'{image_id}_{query_id}_{stage}.bin'
+            # if os.path.isfile(results_file): self.read_results(results_file, stage)
+            # #########################
 
             self.explain(image_path=self.image_path, mode='test', test_query=query, save_dir=save_dir, image_id=image_id, query_id=query_id)
             results_dict[query] = 1 if self.is_good_answer() else 0
@@ -398,38 +484,28 @@ class Explainer():
         return False
 
     def generate_test_images(self):
+        test_images = list()
         mask = self.stages_results[self.current_stage]['proposed_mask']
-        shape = self.image.shape
-        black = np.full(shape, 0)
-        grey = np.random.normal(0.5, 0.25, size=shape)
-        white = np.full(shape, 1) 
 
-        black[mask] = self.image[mask]
-        grey[mask] = self.image[mask]
-        white[mask] = self.image[mask]
+        if self.improved_XIC:
+            blurred = self.blurred.copy()
+            blurred[mask] = self.image[mask]
+            test_images = [blurred]
+        else:
+            shape = self.image.shape
+            black = np.full(shape, 0)
+            white = np.full(shape, 1)
+            grey = np.random.normal(loc=0.5, scale=0.1, size=shape)
+            grey = np.clip(grey, 0, 1)
 
-        return [black, grey, white]
+            black[mask] = self.image[mask]
+            grey[mask] = self.image[mask]
+            white[mask] = self.image[mask]
+
+            test_images = [black, grey, white]
+
+        return test_images
 
 
 if __name__ == "__main__":
-    # def calculate_similarity_score(text_1, text_2, remove_stops=True):
-    #     # if remove_stops:
-    #     #     text_1 = self.removeStops(text_1)
-    #     #     text_2 = self.removeStops(text_2)
-    #     corpus = [text_1, text_2]
-    #     vectorizer = CountVectorizer().fit_transform(corpus)
-    #     vectors = vectorizer.toarray()
-
-    #     vect_1 = vectors[0].reshape(1, -1)
-    #     vect_2 = vectors[1].reshape(1, -1)
-
-    #     return cosine_similarity(vect_1, vect_2)
-    
-    # log_print(calculate_similarity_score('man in a blue shirt is standing on a wooden bench', 'wooden bench'))
-
-    im = np.ones(shape=(400, 600, 3))
-    log_print(im.shape)
-    log_print(im[:,:,0].shape)
-    im[:,:] = (255, 0, 0)
-    plt.imshow(im)
-    plt.show()
+    pass
