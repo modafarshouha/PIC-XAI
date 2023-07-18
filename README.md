@@ -1,6 +1,6 @@
 # PIC-XAI
-PIC-XAI: Post-hoc Image Captioning Explanation using Segmentation. <br>
-Paper link: *not yet*
+[PIC-XAI: Post-hoc Image Captioning Explanation using Segmentation](https://doi.org/10.1109/SACI58269.2023.10158563) <br>
+iPIC-XAI: Improving PIC-XAI for Enhanced Image Captioning Explanation *(Paper link is not available yet)*. <br>
 
 ## Acknowledgement
 The code uses two instance segementation models from Facebook [Detectron2](https://https://github.com/facebookresearch/detectron2).
@@ -36,15 +36,28 @@ We tested our algorithm **PIC-XAI** and metric **XIC** on test queries and the c
 ## Usage
 In this repo we use a segmentation model that was trained on Lvis and MSCOCO data sets. For low-level segmentation quickshift, felzenszwalb or slic can be used. We use an IC models that were traiend on Flickr8k and MSCOCO data sets. All those techniques can be fine-tuned w.r.t the user need.
 To use *PIC-XAI*, set the proper parameters and paths and run the following command:
-'''
+```
 python .\PIC-XAI\IterIC.py
-'''
+```
+
+
+iPIC-XAI code and more details about the usage will be added very soon.
 
 Please refer to this repository and cite our publication when using this work.
 
 ## Cite
 ```
-not yet
+@inproceedings{al2023pic,
+  title={PIC-XAI: Post-hoc Image Captioning Explanation using Segmentation},
+  author={Al-Shouha, Modafar and Sz{\H{u}}cs, G{\'a}bor},
+  booktitle={2023 IEEE 17th International Symposium on Applied Computational Intelligence and Informatics (SACI)},
+  pages={000033--000038},
+  year={2023},
+  organization={IEEE},
+  doi={10.1109/SACI58269.2023.10158563}
+}
+
+@iPIC-XAI BibTeX citation is not available yet.
 ```
 
 ## License
