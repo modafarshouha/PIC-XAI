@@ -1,6 +1,6 @@
 # PIC-XAI
 [PIC-XAI: Post-hoc Image Captioning Explanation using Segmentation](https://doi.org/10.1109/SACI58269.2023.10158563) <br>
-iPIC-XAI: Improving PIC-XAI for Enhanced Image Captioning Explanation *(Paper link is not available yet)*. <br>
+[iPIC-XAI: Improving PIC-XAI for Enhanced Image Captioning Explanation](https://doi.org/10.1109/CogInfoCom59411.2023.10397523) <br>
 
 ## Acknowledgement
 The code uses two instance segementation models from Facebook [Detectron2](https://https://github.com/facebookresearch/detectron2).
@@ -61,17 +61,24 @@ Please refer to this repository and cite our publication when using this work.
 
 ## Cite
 ```
-@inproceedings{al2023pic,
+@INPROCEEDINGS{10158563,
   title={PIC-XAI: Post-hoc Image Captioning Explanation using Segmentation},
-  author={Al-Shouha, Modafar and Sz{\H{u}}cs, G{\'a}bor},
-  booktitle={2023 IEEE 17th International Symposium on Applied Computational Intelligence and Informatics (SACI)},
-  pages={000033--000038},
+  author={Al-Shouha, Modafar and Szűcs, Gábor},
+  booktitle={2023 IEEE 17th International Symposium on Applied Computational Intelligence and Informatics (SACI)},  
   year={2023},
-  organization={IEEE},
-  doi={10.1109/SACI58269.2023.10158563}
-}
+  pages={000033-000038},
+  keywords={Measurement;Deep learning;Image segmentation;Codes;Closed box;Learning (artificial intelligence);Task analysis;Explainable Artificial Intelligence (XAI);Machine Learning (ML);Deep Learning (DL);Image Captioning (IC);Image Segmentation},
+  doi={10.1109/SACI58269.2023.10158563}}
 
-@iPIC-XAI BibTeX citation is not available yet.
+@INPROCEEDINGS{10397523,
+  title={iPIC-XAI: Improving PIC-XAI for Enhanced Image Captioning Explanation},
+  author={Al-Shouha, Modafar and Szűcs, Gábor},
+  booktitle={2023 14th IEEE International Conference on Cognitive Infocommunications (CogInfoCom)},  
+  year={2023},
+  pages={000045-000050},
+  keywords={Explainable Artificial Intelligence (XAI);Deep Learning (DL);Image Captioning (IC);Image Segmentation;PIC-XAI;CLIP multimodal similarity},
+  doi={10.1109/CogInfoCom59411.2023.10397523}
+}
 ```
 
 ## License
