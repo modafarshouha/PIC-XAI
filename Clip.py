@@ -20,7 +20,7 @@ class Clip():
         return similarity
 
     def extract_features(self, item):
-        if isinstance(item, str): return self.extract_features_test(item)
+        if isinstance(item, str): return self.extract_features_text(item)
         return self.extract_features_image(item) 
 
     def extract_features_image(self, image):
@@ -32,7 +32,7 @@ class Clip():
             image_features = self.model.encode_image(image).float()
         return image_features
 
-    def extract_features_test(self, text):
+    def extract_features_text(self, text):
         text = clip.tokenize([text])
         with torch.no_grad():
             text_features = self.model.encode_text(text).float()
